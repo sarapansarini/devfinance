@@ -1,10 +1,10 @@
 const modal = {
   open() {
     /* abrir modal / objeto -> propriedadaes e funcionalidades  
-    adicionar aclasse active ao modal
-    querySelector: seletor CSS -> vai procurar o .modal-overlay
-      -> irá pegar outra propriedade -> lista de classes, e aí vem a funcionalidade 
-    */
+      adicionar aclasse active ao modal
+      querySelector: seletor CSS -> vai procurar o .modal-overlay
+        -> irá pegar outra propriedade -> lista de classes, e aí vem a funcionalidade 
+      */
 
     document.querySelector(".modal-overlay").classList.add("active");
   },
@@ -12,44 +12,43 @@ const modal = {
     //fechar o modal
     // remover a classe active do modal
     document.querySelector(".modal-overlay").classList.remove("active");
-  }
+  },
 };
 
-const transactions = [
-  {
-    id: 1,
-    description: "Luz",
-    amount: -50000,
-    //para dinheiro não se coloca $ ou vírgula, apenas as casas decimais diretamente
-    date: "23/01/2021"
-  },
-  {
-    id: 2,
-    description: "Criação de Website",
-    amount: 500000,
-    date: "23/01/2021"
-  },
-  {
-    id: 3,
-    description: "Internet",
-    amount: -20000,
-    date: "23/01/2021"
-  },
-  {
-    id: 4,
-    description: "App",
-    amount: 15001,
-    date: "30/01/2021"
-  }
-];
-
-// = significa atribuição de valor
-
 const Transaction = {
-  all: transactions,
+  all: [
+    {
+      description: "Luz",
+      amount: -50000,
+      //para dinheiro não se coloca $ ou vírgula, apenas as casas decimais diretamente
+      date: "23/01/2021",
+    },
+    {
+      description: "Criação de Website",
+      amount: 500000,
+      date: "23/01/2021",
+    },
+    {
+      description: "Internet",
+      amount: -20000,
+      date: "23/01/2021",
+    },
+    {
+      description: "App",
+      amount: 15001,
+      date: "30/01/2021",
+    },
+  ],
   add(transaction) {
     Transaction.all.push(transaction);
     // push coloca itens dentro da array
+    App.reload();
+  },
+
+  remove(index) {
+    Transaction.all.splice(index, 1);
+
+    App.reload();
   },
 
   incomes() {
@@ -78,7 +77,7 @@ const Transaction = {
   },
   total() {
     return Transaction.incomes() + Transaction.expenses();
-  }
+  },
 };
 
 const DOM = {
@@ -98,11 +97,11 @@ const DOM = {
     const amount = Utils.formatCurrency(transaction.amount);
 
     const html = `
-      <td class="description">${transaction.description}</td>
-      <td class="${CSSclass}">${amount}</td>
-      <td class="date">${transaction.date}</td>
-      <td><img src="./assets/minus.svg" alt="Remover Transação"/></td>
-    `;
+        <td class="description">${transaction.description}</td>
+        <td class="${CSSclass}">${amount}</td>
+        <td class="date">${transaction.date}</td>
+        <td><img src="./assets/minus.svg" alt="Remover Transação"/></td>
+      `;
 
     return html;
     //return vai enviar para fora os itens da função
@@ -118,10 +117,26 @@ const DOM = {
     document.getElementById("totalDisplay").innerHTML = Utils.formatCurrency(
       Transaction.total()
     );
-  }
+  },
+
+  clearTransactions() {
+    DOM.transactionsContainer.innerHTML = "";
+  },
 };
 
 const Utils = {
+  formatAmount(value) {
+    value = Number(value) * 100;
+
+    return value;
+  },
+
+  formatDate(date) {
+    const splittedDate = date.split("-");
+    return `${splittedDate[2]}/${splittedDate[1]}/${splittedDate[0]}`;
+    //split irá separar de acordo com o separador que eu espcificar,seja um número, letra ou símbolo
+  },
+
   formatCurrency(value) {
     const signal = Number(value) < 0 ? "-" : "";
 
@@ -138,25 +153,95 @@ const Utils = {
 
     value = value.toLocaleString("pr-BR", {
       style: "currency",
-      currency: "BRL"
+      currency: "BRL",
     });
 
     return signal + value;
-  }
+  },
 };
 
-transactions.forEach(function (transaction) {
-  DOM.addTransaction(transaction);
-});
+const Form = {
+  description: document.querySelector("input#description"),
+  amount: document.querySelector("input#amount"),
+  date: document.querySelector("input#date"),
 
-// forEach funciona para arrays, irá excecutar 1 funcionalidade
-// para cada elemento
+  getValues() {
+    return {
+      description: Form.description.value,
+      amount: Form.amount.value,
+      date: Form.date.value,
+    };
+  },
+  validateFields() {
+    const { description, amount, date } = Form.getValues();
 
-DOM.updateBalance();
+    if (
+      description.trim() === "" ||
+      amount.trim() === "" ||
+      date.trim() === ""
+    ) {
+      throw new Error("Por favor, preencha todos os campos");
+    }
+  },
 
-Transaction.add({
-  id: 39,
-  description: "alo",
-  amount: 200,
-  date: "25/01/2021"
-});
+  formatValues() {
+    let { description, amount, date } = Form.getValues();
+    amount = Utils.formatAmount(amount);
+
+    date = Utils.formatDate(date);
+
+    return {
+      // description: description, como a variável tem o mesmo nome da chave, podemos usar o shorthand como abaixo:
+      description,
+      amount,
+      date,
+    };
+  },
+
+  clearFields() {
+    Form.description.value = "";
+    Form.amount.value = "";
+    Form.date.value = "";
+  },
+
+  saveTransaction(transaction) {
+    Transaction.add(transaction);
+  },
+
+  submit(event) {
+    event.preventDefault();
+
+    try {
+      // verificar se as infosmações foram preenchidas ->
+      Form.validateFields();
+      // Formatar os dados para salvar
+      const transaction = Form.formatValues();
+      // salvar
+      Transaction.add(transaction);
+      // apagar os dados do formulário
+      Form.clearFields();
+      modal.close();
+    } catch (error) {
+      alert(error.message);
+    }
+  },
+};
+
+const App = {
+  init() {
+    Transaction.all.forEach((transaction) => {
+      DOM.addTransaction(transaction);
+    });
+
+    // forEach funciona para arrays, irá excecutar 1 funcionalidade
+    // para cada elemento
+
+    DOM.updateBalance();
+  },
+  reload() {
+    DOM.clearTransactions();
+    App.init();
+  },
+};
+
+App.init();
